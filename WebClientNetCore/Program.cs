@@ -13,8 +13,8 @@ namespace WebClientNetCore
         {
             var services = new ServiceCollection();
 
-            //Runner is the custom class
             services.AddTransient<Runner>();
+            services.AddSingleton<SimpleRetryHelper>();
 
             services.AddSingleton<ILoggerFactory, LoggerFactory>();
             services.AddSingleton(typeof(ILogger<>), typeof(Logger<>));
@@ -36,8 +36,8 @@ namespace WebClientNetCore
             // initializations
             var servicesProvider = BuildDi();
             var runner = servicesProvider.GetRequiredService<Runner>();
+            var simpleRetryHelper = servicesProvider.GetRequiredService<SimpleRetryHelper>();
 
-            // test logging 
             runner.DoAction("Action1");
 
             Console.WriteLine("Start");
@@ -46,7 +46,7 @@ namespace WebClientNetCore
 
             var maxRetryAttempts = 3;
             var pauseBetweenFailures = TimeSpan.FromSeconds(5);
-            SimpleRetryHelper.RetryOnException(maxRetryAttempts, pauseBetweenFailures, () => {
+            simpleRetryHelper.RetryOnException(maxRetryAttempts, pauseBetweenFailures, () => {
                 message = httpClient.GetStringAsync("http://teachmetest.azurewebsites.net/api/values").Result;
             });
 

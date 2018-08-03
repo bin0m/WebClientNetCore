@@ -1,11 +1,18 @@
-﻿using System;
+﻿using Microsoft.Extensions.Logging;
+using System;
 using System.Threading.Tasks;
 
 namespace WebClientNetCore
 {
     public class SimpleRetryHelper
     {
-        public static void RetryOnException(int times, TimeSpan delay, Action operation)
+        private readonly ILogger<Runner> _logger;
+
+        public SimpleRetryHelper(ILogger<Runner> logger)
+        {
+            _logger = logger;
+        }
+        public void RetryOnException(int times, TimeSpan delay, Action operation)
         {
             var attempts = 0;
             do
@@ -21,8 +28,7 @@ namespace WebClientNetCore
                     if (attempts == times)
                         throw;
 
-                    //todo: write to Log
-                    Console.WriteLine($"Exception caught on attempt {attempts} - will retry after delay {delay}", ex);
+                    _logger.LogWarning(ex, $"Exception caught on attempt {attempts} - will retry after delay {delay}");
 
                     Task.Delay(delay).Wait();
                 }
