@@ -15,6 +15,7 @@ namespace WebClientNetCore
 
             services.AddTransient<Runner>();
             services.AddSingleton<SimpleRetryHelper>();
+            services.AddSingleton<AsyncRetryHelper>();
 
             services.AddSingleton<ILoggerFactory, LoggerFactory>();
             services.AddSingleton(typeof(ILogger<>), typeof(Logger<>));
@@ -33,28 +34,38 @@ namespace WebClientNetCore
 
         static void Main(string[] args)
         {
+            Console.WriteLine("Start");
+
             // initializations
             var servicesProvider = BuildDi();
             var runner = servicesProvider.GetRequiredService<Runner>();
             var simpleRetryHelper = servicesProvider.GetRequiredService<SimpleRetryHelper>();
+            var asyncRetryHelper = servicesProvider.GetRequiredService<AsyncRetryHelper>();
 
             runner.DoAction("Action1");
-
-            Console.WriteLine("Start");
+                        
             HttpClient httpClient = new HttpClient();
             string message = "no message";
 
             var maxRetryAttempts = 3;
             var pauseBetweenFailures = TimeSpan.FromSeconds(5);
-            simpleRetryHelper.RetryOnException(maxRetryAttempts, pauseBetweenFailures, () => {
-                message = httpClient.GetStringAsync("http://teachmetest.azurewebsites.net/api/values").Result;
+            //simpleRetryHelper.RetryOnException(maxRetryAttempts, pauseBetweenFailures, () => {
+            //    message = httpClient.GetStringAsync("http://teachmetest.azurewebsites.net/api/values").Result;
+            //});
+            var response = asyncRetryHelper.RetryOnExceptionAsync(maxRetryAttempts, pauseBetweenFailures, async () =>
+            {
+                message = await httpClient.GetStringAsync("http://teachmetest.azurewebsites.net/api/values");
             });
 
+            response.Wait();
+
             Console.WriteLine($"Got message:{message}");
-            Console.ReadLine();
 
             // Ensure to flush and stop internal timers/threads before application-exit (Avoid segmentation fault on Linux)
             NLog.LogManager.Shutdown();
+            Console.ReadLine();
+
+
         }
     }
 }
