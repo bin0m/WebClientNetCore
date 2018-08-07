@@ -13,7 +13,7 @@ namespace WebClientNetCore
             _logger = logger;
         }
 
-        public async Task RetryOnExceptionAsync(int times, TimeSpan delay, Func<Task> operation)
+        public async Task RetryOnExceptionAsync<TException>(int times, TimeSpan delay, Func<Task> operation) where TException:Exception
         {
             if (times <= 0)
             {
@@ -29,7 +29,7 @@ namespace WebClientNetCore
                     await operation();
                     break; // Sucess! Lets exit the loop!
                 }
-                catch (Exception ex)
+                catch (TException ex)
                 {
                     if (attempts == times)
                     {

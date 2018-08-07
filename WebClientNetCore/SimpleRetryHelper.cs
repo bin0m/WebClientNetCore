@@ -12,7 +12,7 @@ namespace WebClientNetCore
         {
             _logger = logger;
         }
-        public void RetryOnException(int times, TimeSpan delay, Action operation)
+        public void RetryOnException<TException>(int times, TimeSpan delay, Action operation) where TException : Exception
         {
             var attempts = 0;
             do
@@ -23,7 +23,7 @@ namespace WebClientNetCore
                     operation();
                     break; // Sucess! Lets exit the loop!
                 }
-                catch (Exception ex)
+                catch (TException ex)
                 {
                     if (attempts == times)
                         throw;

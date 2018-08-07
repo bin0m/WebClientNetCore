@@ -49,10 +49,10 @@ namespace WebClientNetCore
 
             var maxRetryAttempts = 3;
             var pauseBetweenFailures = TimeSpan.FromSeconds(5);
-            //simpleRetryHelper.RetryOnException(maxRetryAttempts, pauseBetweenFailures, () => {
+            //simpleRetryHelper.RetryOnException<HttpRequestException>(maxRetryAttempts, pauseBetweenFailures, () => {
             //    message = httpClient.GetStringAsync("http://teachmetest.azurewebsites.net/api/values").Result;
             //});
-            var response = asyncRetryHelper.RetryOnExceptionAsync(maxRetryAttempts, pauseBetweenFailures, async () =>
+            var response = asyncRetryHelper.RetryOnExceptionAsync<HttpRequestException>(maxRetryAttempts, pauseBetweenFailures, async () =>
             {
                 message = await httpClient.GetStringAsync("http://teachmetest.azurewebsites.net/api/values");
             });
