@@ -21,6 +21,8 @@ namespace WebClientNetCore
             }
 
             int attempts = 0;
+            // half the delay, because it will be multiplied by 2 before actually delaying;
+            delay /= 2;
             do
             {
                 try
@@ -36,8 +38,10 @@ namespace WebClientNetCore
                         throw;
                     }
 
-                    _logger.LogWarning(ex, $"Exception caught on attempt {attempts} - will retry after delay {delay}");
+                    // increase delay 2 times after failed attempt
+                    delay *= 2;
 
+                    _logger.LogWarning(ex, $"Exception caught on attempt {attempts} - will retry after delay {delay}");
                     await Task.Delay(delay);
                 }
 

@@ -48,7 +48,7 @@ namespace WebClientNetCore
             string message = "no message";
 
             var maxRetryAttempts = 3;
-            var pauseBetweenFailures = TimeSpan.FromSeconds(5);
+            var pauseBetweenFailures = TimeSpan.FromSeconds(3);
             //simpleRetryHelper.RetryOnException<HttpRequestException>(maxRetryAttempts, pauseBetweenFailures, () => {
             //    message = httpClient.GetStringAsync("http://teachmetest.azurewebsites.net/api/values").Result;
             //});
