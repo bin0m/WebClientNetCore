@@ -4,6 +4,7 @@ using NLog.Extensions.Logging;
 using System;
 using System.Net.Http;
 using System.Threading.Tasks;
+using Polly;
 
 namespace WebClientNetCore
 {
@@ -35,23 +36,48 @@ namespace WebClientNetCore
         static void Main(string[] args)
         {
             Console.WriteLine("Start");
-
             // initializations
             var servicesProvider = BuildDi();
             var runner = servicesProvider.GetRequiredService<Runner>();
-            var simpleRetryHelper = servicesProvider.GetRequiredService<SimpleRetryHelper>();
-            var asyncRetryHelper = servicesProvider.GetRequiredService<AsyncRetryHelper>();
-
             runner.DoAction("Action1");
-                        
+
+            //RetryUsingSimpleRetryHelper(servicesProvider);
+            //RetryUsingAsyncRetryHelper(servicesProvider);
+            RetryUsingPolly(servicesProvider);
+
+            Console.WriteLine("End");
+            // Ensure to flush and stop internal timers/threads before application-exit (Avoid segmentation fault on Linux)
+            NLog.LogManager.Shutdown();
+            Console.ReadLine();
+        }
+
+        static void RetryUsingSimpleRetryHelper(IServiceProvider servicesProvider)
+        {
+            var simpleRetryHelper = servicesProvider.GetRequiredService<SimpleRetryHelper>();
+          
             HttpClient httpClient = new HttpClient();
             string message = "no message";
 
             var maxRetryAttempts = 3;
             var pauseBetweenFailures = TimeSpan.FromSeconds(3);
-            //simpleRetryHelper.RetryOnException<HttpRequestException>(maxRetryAttempts, pauseBetweenFailures, () => {
-            //    message = httpClient.GetStringAsync("http://teachmetest.azurewebsites.net/api/values").Result;
-            //});
+
+            simpleRetryHelper.RetryOnException<Exception>(maxRetryAttempts, pauseBetweenFailures, () =>
+            {
+                message = httpClient.GetStringAsync("http://teachmetest.azurewebsites.net/api/values").Result;
+            });
+
+            Console.WriteLine($"Got message:{message}");
+        }
+
+        static void RetryUsingAsyncRetryHelper(IServiceProvider servicesProvider)
+        {        
+            var asyncRetryHelper = servicesProvider.GetRequiredService<AsyncRetryHelper>();
+
+            HttpClient httpClient = new HttpClient();
+            string message = "no message";
+
+            var maxRetryAttempts = 3;
+            var pauseBetweenFailures = TimeSpan.FromSeconds(3);
             var response = asyncRetryHelper.RetryOnExceptionAsync<HttpRequestException>(maxRetryAttempts, pauseBetweenFailures, async () =>
             {
                 message = await httpClient.GetStringAsync("http://teachmetest.azurewebsites.net/api/values");
@@ -60,12 +86,26 @@ namespace WebClientNetCore
             response.Wait();
 
             Console.WriteLine($"Got message:{message}");
+        }
 
-            // Ensure to flush and stop internal timers/threads before application-exit (Avoid segmentation fault on Linux)
-            NLog.LogManager.Shutdown();
-            Console.ReadLine();
+        static void RetryUsingPolly(IServiceProvider servicesProvider)
+        {
+            var httpClient = new HttpClient();
+            string message = "no message";
+            var maxRetryAttempts = 3;
+            var pauseBetweenFailures = TimeSpan.FromSeconds(5);
 
+            var retryPolicy = Policy
+                .Handle<Exception>()
+                .WaitAndRetryAsync(maxRetryAttempts, i => pauseBetweenFailures);
+            var response =  retryPolicy.ExecuteAsync(async () =>
+            {
+                message = await httpClient.GetStringAsync("http://teachmetest.azurewebsites.net/api/values");
+            });
 
+            response.Wait();
+
+            Console.WriteLine($"Got message:{message}");
         }
     }
 }
