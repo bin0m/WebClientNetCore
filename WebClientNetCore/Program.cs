@@ -5,6 +5,9 @@ using System;
 using System.Net.Http;
 using System.Threading.Tasks;
 using Polly;
+using Polly.Timeout;
+using System.Linq;
+using System.Collections.Generic;
 
 namespace WebClientNetCore
 {
@@ -43,7 +46,8 @@ namespace WebClientNetCore
 
             //RetryUsingSimpleRetryHelper(servicesProvider);
             //RetryUsingAsyncRetryHelper(servicesProvider);
-            RetryUsingPolly(servicesProvider);
+            //RetryUsingPolly();
+            Task.Factory.StartNew(async () => await RetryAndTimeoutUsingPolly());
 
             Console.WriteLine("End");
             // Ensure to flush and stop internal timers/threads before application-exit (Avoid segmentation fault on Linux)
@@ -54,7 +58,7 @@ namespace WebClientNetCore
         static void RetryUsingSimpleRetryHelper(IServiceProvider servicesProvider)
         {
             var simpleRetryHelper = servicesProvider.GetRequiredService<SimpleRetryHelper>();
-          
+
             HttpClient httpClient = new HttpClient();
             string message = "no message";
 
@@ -70,7 +74,7 @@ namespace WebClientNetCore
         }
 
         static void RetryUsingAsyncRetryHelper(IServiceProvider servicesProvider)
-        {        
+        {
             var asyncRetryHelper = servicesProvider.GetRequiredService<AsyncRetryHelper>();
 
             HttpClient httpClient = new HttpClient();
@@ -88,7 +92,7 @@ namespace WebClientNetCore
             Console.WriteLine($"Got message:{message}");
         }
 
-        static void RetryUsingPolly(IServiceProvider servicesProvider)
+        static void RetryUsingPolly()
         {
             var httpClient = new HttpClient();
             string message = "no message";
@@ -98,14 +102,83 @@ namespace WebClientNetCore
             var retryPolicy = Policy
                 .Handle<Exception>()
                 .WaitAndRetryAsync(maxRetryAttempts, i => pauseBetweenFailures);
-            var response =  retryPolicy.ExecuteAsync(async () =>
-            {
-                message = await httpClient.GetStringAsync("http://teachmetest.azurewebsites.net/api/values");
-            });
+            var response = retryPolicy.ExecuteAsync(async () =>
+           {
+               message = await httpClient.GetStringAsync("http://teachmetest.azurewebsites.net/api/values");
+           });
 
             response.Wait();
 
             Console.WriteLine($"Got message:{message}");
+        }
+
+        static async Task RetryAndTimeoutUsingPolly()
+        {
+            var httpClient = new HttpClient();
+            string message = "no message";
+            var maxRetryAttempts = 3;
+            var pauseBetweenFailures = TimeSpan.FromSeconds(5);
+            var timeoutInSec = 20;
+
+            //Retry Policy
+            var retryPolicy = Policy
+                .Handle<Exception>()
+                //.Or<AnyOtherException>()
+                .WaitAndRetryAsync(
+                    maxRetryAttempts,
+                    i => pauseBetweenFailures,
+                    (exception, timeSpan, retryCount, context) => ManageRetryException(exception, timeSpan, retryCount, context));
+
+            //TimeOut Policy
+            var timeOutPolicy = Policy
+                .TimeoutAsync(
+                    timeoutInSec,
+                    TimeoutStrategy.Pessimistic,
+                    (context, timeSpan, task) => ManageTimeoutException(context, timeSpan, task));
+
+            //Combine the two (or more) policies
+            var policyWrap = Policy.WrapAsync(retryPolicy, timeOutPolicy);
+
+            //Execute the transient task(s)
+            await policyWrap.ExecuteAsync(async (ct) =>
+            {
+                Console.WriteLine("\r\nExecuting RetryAndTimeoutUsingPolly task...");
+                message = await httpClient.GetStringAsync("http://teachmetest.azurewebsites.net/api/values");
+            }, new Dictionary<string, object>() { { "ExecuteOperation", "Operation description..." } });
+
+            Console.WriteLine($"Got message:{message}");
+
+            return;
+        }
+
+        private static void ManageRetryException(Exception exception, TimeSpan timeSpan, int retryCount, Context context)
+        {
+            var action = context != null ? context.First().Key : "unknown method";
+            var actionDescription = context != null ? context.First().Value : "unknown description";
+            var msg = $"Retry n°{retryCount} of {action} ({actionDescription}) : {exception.Message}";
+            Console.WriteLine(msg);
+        }
+
+        private static Task ManageTimeoutException(Context context, TimeSpan timeSpan, Task task)
+        {
+            var action = context != null ? context.First().Key : "unknown method";
+            var actionDescription = context != null ? context.First().Value : "unknown description";
+
+            task.ContinueWith(t =>
+            {
+                if (t.IsFaulted)
+                {
+                    var msg = $"Running {action} ({actionDescription}) but the execution timed out after {timeSpan.TotalSeconds} seconds, eventually terminated with: {t.Exception}.";
+                    Console.WriteLine(msg);
+                }
+                else if (t.IsCanceled)
+                {
+                    var msg = $"Running {action} ({actionDescription}) but the execution timed out after {timeSpan.TotalSeconds} seconds, task cancelled.";
+                    Console.WriteLine(msg);
+                }
+            });
+
+            return task;
         }
     }
 }
