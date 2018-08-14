@@ -45,8 +45,8 @@ namespace WebClientNetCore
             runner.DoAction("Action1");
 
             //RetryUsingSimpleRetryHelper(servicesProvider);
-            //RetryUsingAsyncRetryHelper(servicesProvider);
-            RetryUsingPolly();
+            RetryUsingAsyncRetryHelper(servicesProvider);
+            //RetryUsingPolly();
             //Task.Factory.StartNew(async () => await RetryAndTimeoutUsingPolly());
 
             Console.WriteLine("End");
