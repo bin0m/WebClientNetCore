@@ -45,9 +45,9 @@ namespace WebClientNetCore
             runner.DoAction("Action1");
 
             //RetryUsingSimpleRetryHelper(servicesProvider);
-            RetryUsingAsyncRetryHelper(servicesProvider);
+            //RetryUsingAsyncRetryHelper(servicesProvider);
             //RetryUsingPolly();
-            //Task.Factory.StartNew(async () => await RetryAndTimeoutUsingPolly());
+            Task.Factory.StartNew(async () => await RetryAndTimeoutUsingPolly());
 
             Console.WriteLine("End");
             // Ensure to flush and stop internal timers/threads before application-exit (Avoid segmentation fault on Linux)
